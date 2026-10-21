@@ -811,6 +811,7 @@
   }
 
   function updateStatus() {
+    if (recapOn) { return; }
     const live = [...lanes.values()].filter((l) => l.busy()).length;
     const queued = [...lanes.values()].reduce((n, l) => n + l.queue.length, 0);
     statusEl.textContent = lanes.size
@@ -835,6 +836,44 @@
     focusAgent = focusEl.value;
   }
 
+  // ---- recap (a saved session played back) -------------------------------------
+  const recapEl = document.getElementById('recap');
+  const rPlay = document.getElementById('r-play');
+  const rSpeed = /** @type {HTMLSelectElement} */ (document.getElementById('r-speed'));
+  const rScrub = /** @type {HTMLInputElement} */ (document.getElementById('r-scrub'));
+  const rPos = document.getElementById('r-pos');
+  const rNow = document.getElementById('r-now');
+  let recapOn = false;
+  let scrubbing = false;
+  const sendRecap = (action, value) => vscode.postMessage({ type: 'recap', action, value });
+  rPlay.addEventListener('click', () => sendRecap('toggle'));
+  rSpeed.addEventListener('change', () => sendRecap('speed', Number(rSpeed.value)));
+  document.getElementById('r-live').addEventListener('click', () => sendRecap('live'));
+  rScrub.addEventListener('input', () => { scrubbing = true; rPos.textContent = `${rScrub.value} / ${rScrub.max}`; });
+  rScrub.addEventListener('change', () => { scrubbing = false; sendRecap('seek', Number(rScrub.value)); });
+
+  function handleRecap(msg) {
+    recapOn = !!msg.on;
+    recapEl.classList.toggle('hidden', !recapOn);
+    document.body.classList.toggle('is-recap', recapOn);
+    if (!recapOn) { updateStatus(); return; }
+    if (rSpeed.options.length !== (msg.speeds || []).length) {
+      rSpeed.innerHTML = (msg.speeds || []).map((s) => `<option value="${s}">${s}×</option>`).join('');
+    }
+    rSpeed.value = String(msg.speed);
+    rPlay.textContent = msg.playing ? '⏸' : '▶';
+    rScrub.max = String(msg.total);
+    if (!scrubbing) {
+      rScrub.value = String(msg.index);
+      rPos.textContent = `${msg.index} / ${msg.total}`;
+    }
+    const c = msg.current;
+    rNow.textContent = c ? `${c.agent} · ${c.detail || c.op}` : '';
+    rNow.title = c ? `${c.file}` : '';
+    statusEl.textContent = `recap · ${msg.title || 'session'}${msg.index >= msg.total && msg.total ? ' · finished' : ''}`;
+    document.body.classList.toggle('is-live', !!msg.playing);
+  }
+
   // ---- loop ----------------------------------------------------------------------
   let sweepAt = 0;
   function frame(ts) {
@@ -847,9 +886,9 @@
     if (ts > sweepAt) {
       sweepAt = ts + 1000;
       for (const lane of [...lanes.values()]) {
-        if (!lane.busy() && ts - lane.lastActive > LANE_TTL_MS) { closeLane(lane); }
+        if (!recapOn && !lane.busy() && ts - lane.lastActive > LANE_TTL_MS) { closeLane(lane); }
       }
-      updateStatus();
+      if (!recapOn) { updateStatus(); }
     }
     requestAnimationFrame(frame);
   }
@@ -861,9 +900,11 @@
     if (!msg) { return; }
     if (msg.type === 'step' && msg.step) {
       handleStep(msg.step);
+    } else if (msg.type === 'recap') {
+      handleRecap(msg);
     } else if (msg.type === 'reset') {
       for (const lane of [...lanes.values()]) { closeLane(lane); }
-      updateStatus();
+      if (!recapOn) { updateStatus(); }
     }
   });
 

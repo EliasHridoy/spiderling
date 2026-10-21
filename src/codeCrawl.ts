@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { ActivityEvent } from './types';
 import { colorForAgent } from './palette';
 import { LivePlayer, PlayStep } from './livePlayer';
+import { RecapPlayer, RecapState, SPEEDS, stepToEvent } from './recapPlayer';
 
 // Cap how much of a file we ship into the webview so a huge file can't bloat the
 // DOM; the spider crawls the first MAX_LINES lines.
@@ -23,6 +25,10 @@ export class CodeCrawlPanel {
   private ready = false;
   private disposed = false;
   private pending?: PlayStep;
+  private recap?: RecapPlayer; // set while a saved session is being played back
+  private recapState?: RecapState;
+  private recapTitle = '';
+  private autoplay = false;
 
   static show(context: vscode.ExtensionContext, root: vscode.Uri, last?: ActivityEvent): CodeCrawlPanel {
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
@@ -58,9 +64,26 @@ export class CodeCrawlPanel {
         if (msg?.type === 'ready') {
           this.ready = true;
           this.sent.clear(); // a (re)loaded webview has no file text yet
+          if (this.recap) {
+            this.postRecap();
+            if (this.autoplay) {
+              this.autoplay = false;
+              this.recap.play();
+            }
+          }
           if (this.pending) {
             this.send(this.pending);
             this.pending = undefined;
+          }
+        } else if (msg?.type === 'recap' && this.recap) {
+          if (msg.action === 'toggle') {
+            this.recap.toggle();
+          } else if (msg.action === 'speed' && typeof msg.value === 'number') {
+            this.recap.setSpeed(msg.value);
+          } else if (msg.action === 'seek' && typeof msg.value === 'number') {
+            this.recap.seek(msg.value, () => this.clearLanes());
+          } else if (msg.action === 'live') {
+            this.stopRecap();
           }
         } else if (msg?.type === 'laneClosed' && typeof msg.lane === 'string') {
           this.sent.delete(msg.lane); // a reopened lane needs the file text again
@@ -82,9 +105,57 @@ export class CodeCrawlPanel {
 
   // Only live events are played; replayed history belongs to the recap.
   post(event: ActivityEvent, live: boolean): void {
-    if (live && !this.disposed) {
+    if (live && !this.disposed && !this.recap) {
       this.player.push(event);
     }
+  }
+
+  // Play a saved session back, step by step, through the same lanes as live.
+  // A trace holds paths, ranges and queries but no file text, so files are
+  // read as they are today.
+  playRecap(steps: unknown[], session: string, title: string): void {
+    if (this.disposed) {
+      return;
+    }
+    this.stopRecap(false);
+    const events = steps.map((s) => stepToEvent(s as never, session)).filter((e): e is ActivityEvent => !!e);
+    this.player.clear();
+    this.clearLanes();
+    this.recapTitle = title;
+    this.recap = new RecapPlayer(events, (step) => this.send(step), (state) => {
+      this.recapState = state;
+      this.postRecap();
+    });
+    this.recapState = { index: 0, total: events.length, playing: false, speed: 1 };
+    this.postRecap();
+    if (this.ready) {
+      this.recap.play();
+    } else {
+      this.autoplay = true;
+    }
+  }
+
+  private stopRecap(notify = true): void {
+    this.recap?.dispose();
+    this.recap = undefined;
+    this.recapState = undefined;
+    this.autoplay = false;
+    if (notify && !this.disposed) {
+      this.clearLanes();
+      this.panel.webview.postMessage({ type: 'recap', on: false });
+    }
+  }
+
+  private postRecap(): void {
+    if (this.recapState && !this.disposed) {
+      this.panel.webview.postMessage({ type: 'recap', on: true, title: this.recapTitle, speeds: SPEEDS, ...this.recapState });
+    }
+  }
+
+  private clearLanes(): void {
+    this.pending = undefined;
+    this.sent.clear();
+    this.panel.webview.postMessage({ type: 'reset' });
   }
 
   reset(): void {
@@ -117,6 +188,9 @@ export class CodeCrawlPanel {
   }
 
   private abs(file: string): string {
+    if (file.startsWith('~/')) {
+      return path.join(os.homedir(), file.slice(2)); // traces write home-relative paths as ~/…
+    }
     return path.isAbsolute(file) ? file : vscode.Uri.joinPath(this.root, file).fsPath;
   }
 
@@ -164,6 +238,14 @@ export class CodeCrawlPanel {
       <button id="zoom-reset" title="Reset zoom">⤢</button>
     </span>
   </div>
+  <div id="recap" class="hidden">
+    <button id="r-play" title="Play / pause">⏸</button>
+    <select id="r-speed" title="Speed"></select>
+    <input id="r-scrub" type="range" min="0" max="0" value="0" />
+    <span id="r-pos"></span>
+    <span id="r-now"></span>
+    <button id="r-live" title="Stop the recap and follow agents live">Live</button>
+  </div>
   <div id="lanes"></div>
   <script nonce="${nonce}" src="${script}"></script>
 </body>
@@ -177,6 +259,7 @@ export class CodeCrawlPanel {
     this.disposed = true;
     CodeCrawlPanel.current = undefined;
     this.player.dispose();
+    this.recap?.dispose();
     this.panel.dispose();
     for (const d of this.disposables) {
       d.dispose();

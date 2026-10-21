@@ -54,6 +54,8 @@ interface Step {
   hitFiles?: string[]; // distinct files a search found (paths only)
   symbol?: string; // function/class around the lines, from the CodeGraph index (live steps)
   caption?: string;
+  callKind?: string; // for op 'call': 'mcp' or 'agent'
+  target?: string; // for op 'call': the MCP server or subagent type
 }
 
 // A step waits this long before its symbol is looked up, so the CodeGraph index
@@ -146,6 +148,10 @@ export class SessionTrace {
       if (files.length) {
         step.hitFiles = files;
       }
+    }
+    if (ev.callKind) {
+      step.callKind = ev.callKind;
+      step.target = this.redactor.text(ev.target ?? '');
     }
     if (ev.caption) {
       step.caption = this.redactor.text(ev.caption);
