@@ -232,7 +232,7 @@ test('Agent tool calls announce the subagent', () => {
     assistant([toolUse('t1', 'Agent', { subagent_type: 'planner-fe', description: 'Plan #1', prompt: 'p' })]),
     result('t1', 'launched', { agentId: 'abc123', status: 'async_launched' }),
   ]);
-  assert.equal(events.length, 0);
+  assert.deepEqual(events.map((e) => e.op), ["call"]); // shown live, but not a file step
   assert.deepEqual(meta.find((m) => m.kind === 'spawn').spawn, { toolUseId: 't1', agentType: 'planner-fe', description: 'Plan #1', agentId: 'abc123' });
 });
 
@@ -290,4 +290,25 @@ test('CodeGraph explore calls are searches without hit data', () => {
     result('t1', 'long answer', undefined),
   ]);
   assert.deepEqual([events[0].op, events[0].tool, events[0].query, events[0].hitCount, events[0].caption], ['search', 'codegraph_explore', 'how do links work', undefined, 'Map the area first.']);
+});
+
+test('an MCP tool call becomes a live "call" event naming its server and arguments', () => {
+  const { events } = run(parser(), [
+    assistant([toolUse('t1', 'mcp__claude_ai_Linear__list_issues', { team: 'web', limit: 5 })]),
+    result('t1', 'ok', {}),
+  ]);
+  assert.equal(events.length, 1);
+  const e = events[0];
+  assert.deepEqual([e.op, e.callKind, e.target, e.tool], ['call', 'mcp', 'Linear', 'list_issues']);
+  assert.equal(e.query, 'team: web · limit: 5');
+  assert.equal(e.detail, 'Linear · list_issues');
+});
+
+test('spawning a subagent is a "call" event as well as a spawn record', () => {
+  const { events, meta } = run(parser(), [
+    assistant([toolUse('t1', 'Agent', { subagent_type: 'planner-fe', description: 'Plan the UI', prompt: 'p' })]),
+    result('t1', 'done', {}),
+  ]);
+  assert.deepEqual([events[0].op, events[0].callKind, events[0].target, events[0].query], ['call', 'agent', 'planner-fe', 'Plan the UI']);
+  assert.ok(meta.some((m) => m.kind === 'spawn'));
 });

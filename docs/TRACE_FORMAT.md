@@ -64,7 +64,7 @@ and paths under the home directory are written as `~`.
 | --- | --- |
 | `t` | ISO time the step finished |
 | `agent` | An `agents[].key` |
-| `op` | `read`, `write`, `search` or `bash` (a command that is none of the others) |
+| `op` | `read`, `write`, `search`, `call` (an MCP tool or subagent call) or `bash` (a command that is none of the others) |
 | `file` | The file, workspace-relative with `/` separators when inside the workspace, otherwise absolute (`~/…` under the home directory). For a search: where it searched. `(bash)` for a plain command |
 | `lines` | `[first, last]` read or changed, when known |
 | `detail` | Short description, e.g. `edited 10 line(s) @ line 52`, `sed lines 40-92`, `$ npm test` |

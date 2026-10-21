@@ -8,6 +8,12 @@
 //    beam for reads, a woven stitch for writes), strided to fit the step's time;
 //  - search: the spider types the query into a search box, then walks down the
 //    hits it found;
+//    (the spider perches above the box and reaches in with a leg, so the text
+//    stays readable; on the hit list it walks the left gutter);
+//  - write: the new lines are typed in as the spider reaches them, with the
+//    spider just ahead of the caret on still-blank space;
+//  - MCP / subagent call: the request travels along a thread to the callee,
+//    which works, and the answer travels back;
 //  - a read that opens one of those hits: the spider picks the hit row, then
 //    lands on that line in the file and crawls the range from there.
 (function () {
@@ -72,7 +78,7 @@
     measureCtx.font = `${size} ${fam}`;
     return measureCtx.measureText(String(text).replace(/\t/g, '    ')).width;
   }
-  const OP_ICON = { read: '👁', write: '✎', search: '⌕' };
+  const OP_ICON = { read: '👁', write: '✎', search: '⌕', call: '⚡' };
 
   // ---- lane ------------------------------------------------------------------
   class Lane {
@@ -104,6 +110,9 @@
         this.feet.push({ x: this.x, y: this.y, side: i < 4 ? -1 : 1, rank: i % 4, step: Math.random() * 6.28 });
       }
       this.captionTimer = 0;
+      this.blend = 0;           // 0 = spider on its point, 1 = perched beside it, reaching with a leg
+      this.perch = null;        // 'type' | 'row' | 'write' | null
+      this.hidden = new Map();  // line index -> full text, while a write is typing it in
 
       this.root = document.createElement('div');
       this.root.className = 'lane';
@@ -117,6 +126,12 @@
         + '<div class="search-box"><span class="search-icon">⌕</span><span class="search-tool"></span>'
         + '<span class="search-text"></span><span class="search-caret"></span></div>'
         + '<div class="search-meta"></div><div class="hits"></div></div>'
+        + '<div class="viewport call-vp hidden"><div class="call-stage">'
+        + '<div class="call-node src"><div class="call-icon">🕷</div><div class="call-title"></div><div class="call-sub">calling…</div></div>'
+        + '<div class="call-link"><div class="call-label"></div><div class="call-thread"><span class="call-packet"></span></div>'
+        + '<div class="call-state"></div></div>'
+        + '<div class="call-node dst"><div class="call-icon"></div><div class="call-title"></div><div class="call-sub"></div></div>'
+        + '</div></div>'
         + '<canvas class="overlay"></canvas></div>';
       lanesEl.appendChild(this.root);
       const q = (sel) => /** @type {HTMLElement} */ (this.root.querySelector(sel));
@@ -135,17 +150,25 @@
       this.searchText = q('.search-text');
       this.searchMeta = q('.search-meta');
       this.hitsEl = q('.hits');
+      this.callVp = q('.call-vp');
+      this.callSrc = q('.call-node.src');
+      this.callDst = q('.call-node.dst');
+      this.callLink = q('.call-link');
+      this.callLabel = q('.call-label');
+      this.callThread = q('.call-thread');
+      this.callPacket = q('.call-packet');
+      this.callState = q('.call-state');
       this.canvas = /** @type {HTMLCanvasElement} */ (q('.overlay'));
       this.ctx = /** @type {CanvasRenderingContext2D} */ (this.canvas.getContext('2d'));
 
       this.agentEl.textContent = agentId ? `${agent} · ${agentId.slice(0, 6)}` : agent;
       this.dotEl.style.background = color;
       this.fileEl.addEventListener('click', () => {
-        if (this.file) { vscode.postMessage({ type: 'open', file: this.file }); }
+        if (this.file && this.mode !== 'call') { vscode.postMessage({ type: 'open', file: this.file }); }
       });
     }
 
-    vp() { return this.mode === 'code' ? this.codeVp : this.searchVp; }
+    vp() { return this.mode === 'code' ? this.codeVp : this.mode === 'search' ? this.searchVp : this.callVp; }
 
     layout() {
       const ratio = window.devicePixelRatio || 1;
@@ -166,6 +189,7 @@
       this.mode = mode;
       this.codeVp.classList.toggle('hidden', mode !== 'code');
       this.searchVp.classList.toggle('hidden', mode !== 'search');
+      this.callVp.classList.toggle('hidden', mode !== 'call');
       this.y = screenY + this.vp().scrollTop;
       this.prevY = prevScreenY + this.vp().scrollTop;
       this.web = [];
@@ -211,9 +235,12 @@
       this.step = step;
       this.lastActive = performance.now();
       this.rush = this.queue.length > 1;
+      this.finishTyping();
       this.setHeader(step);
       if (step.caption) { this.setCaption(step.caption); }
-      if (step.op === 'search') {
+      if (step.op === 'call') {
+        this.planCall(step);
+      } else if (step.op === 'search') {
         this.planSearch(step);
       } else if (typeof step.fromHit === 'number' && this.mode === 'search' && this.hitEls[step.fromHit]) {
         this.planPick(step);
@@ -225,8 +252,8 @@
     setHeader(step) {
       this.opEl.textContent = `${OP_ICON[step.op] || '•'} ${step.detail || step.op}`;
       this.opEl.style.color = this.color;
-      this.fileEl.textContent = shortPath(step.file);
-      this.fileEl.title = step.file;
+      this.fileEl.textContent = step.op === 'call' ? (step.target || step.file) : shortPath(step.file);
+      this.fileEl.title = step.op === 'call' ? '' : step.file;
       this.root.dataset.op = step.op;
     }
 
@@ -296,6 +323,15 @@
       const hi = Math.max(from, to);
       this.rangeEls = this.lineEls.slice(lo, hi + 1);
       for (const el of this.rangeEls) { el.classList.add('in-range', step.op === 'write' ? 'r-write' : 'r-read'); }
+      this.finishTyping();
+      if (step.op === 'write' && hi - lo < 600) {
+        // The new text is typed in as the spider reaches it: blank until then.
+        for (let i = lo; i <= hi; i++) {
+          this.hidden.set(i, this.lineEls[i].textContent || ' ');
+          this.lineEls[i].textContent = ' ';
+        }
+        this.typed = lo - 1;
+      }
 
       const budget = step.durationMs * budgetFrac;
       const wps = [];
@@ -320,16 +356,43 @@
       this.path.push(...this.pace(wps, budget));
     }
 
+    // Put back the text of lines a write was still typing in.
+    finishTyping() {
+      for (const [i, text] of this.hidden) {
+        if (this.lineEls[i]) { this.lineEls[i].textContent = text; }
+      }
+      this.hidden.clear();
+    }
+
     lineWaypoint(i, op) {
+      const writing = op === 'write';
       return {
         kind: 'line', op, line: i, x0: GUTTER, x1: GUTTER + this.lineWidth(i), y: this.lineCenter(i),
-        dwell: op === 'write' ? 60 : 25,
+        dwell: writing ? 60 : 25,
         onBegin: () => {
           const el = this.lineEls[i];
-          if (el) { el.classList.remove('visited'); el.classList.add(op === 'write' ? 'active-write' : 'active-read'); }
+          if (el) { el.classList.remove('visited'); el.classList.add(writing ? 'active-write' : 'active-read'); }
+          if (writing) {
+            // Lines the spider strode over are written in full.
+            for (let k = this.typed + 1; k < i; k++) {
+              if (this.hidden.has(k)) { this.lineEls[k].textContent = this.hidden.get(k); this.hidden.delete(k); }
+            }
+            this.typed = i - 1;
+          }
         },
+        onProgress: writing ? (f) => {
+          const full = this.hidden.get(i);
+          if (full === undefined || !this.lineEls[i]) { return; }
+          // Typed with a little stutter, like keys being struck.
+          this.lineEls[i].textContent = full.slice(0, Math.ceil(f * full.length)) || ' ';
+        } : undefined,
         onEnd: () => {
           const el = this.lineEls[i];
+          if (writing && this.hidden.has(i) && el) {
+            el.textContent = this.hidden.get(i);
+            this.hidden.delete(i);
+            this.typed = i;
+          }
           if (el) {
             setTimeout(() => { el.classList.remove('active-read', 'active-write'); el.classList.add('visited'); }, 700);
           }
@@ -345,6 +408,54 @@
       el.classList.add('landing');
       setTimeout(() => el.classList.remove('landing'), 1600);
     }
+
+    // ---- MCP / subagent call ----
+    planCall(step) {
+      this.setMode('call');
+      const agent = step.callKind === 'agent';
+      this.root.classList.toggle('is-agent-call', agent);
+      this.callSrc.querySelector('.call-title').textContent = this.agent;
+      this.callDst.querySelector('.call-icon').textContent = agent ? '🕸' : '🔌';
+      this.callDst.querySelector('.call-title').textContent = step.target || (agent ? 'subagent' : 'MCP server');
+      this.callDst.querySelector('.call-sub').textContent = agent ? 'subagent' : step.tool || 'tool';
+      this.callLabel.textContent = '';
+      this.callState.textContent = agent ? 'spawning…' : 'calling…';
+      this.callPacket.style.left = '0%';
+      this.callRoot('sending');
+      const summary = step.query || '';
+      const rect = this.callLink.getBoundingClientRect();
+      const body = this.body.getBoundingClientRect();
+      const x0 = rect.left - body.left;
+      const x1 = rect.right - body.left;
+      const y = this.callThread.getBoundingClientRect().top - body.top + 1;
+      const send = {
+        kind: 'call', x0, x1, y, dwell: 120,
+        onProgress: (f) => {
+          this.callLabel.textContent = summary.slice(0, Math.ceil(f * summary.length));
+          this.callPacket.style.left = `${Math.round(f * 100)}%`;
+        },
+        onEnd: () => {
+          this.callLabel.textContent = summary;
+          this.callRoot('working');
+          this.callState.textContent = agent ? 'working…' : 'running tool…';
+        },
+      };
+      // The answer comes back along the same thread: the spider walks home.
+      const back = {
+        kind: 'call', x0: x1, x1: x1 + 1, y, dwell: 0,
+        onBegin: () => { this.callRoot('answering'); this.callState.textContent = '← answer'; },
+        onEnd: () => {
+          const home = { kind: 'call', x0, x1: x0 + 1, y, dwell: 200, onBegin: () => this.callPacket.style.left = '0%', onEnd: () => { this.callRoot('done'); this.callState.textContent = 'done'; } };
+          this.path.unshift(...this.pace([home], step.durationMs * 0.15));
+        },
+      };
+      this.path.push(...this.pace([send], step.durationMs * 0.5));
+      // 'working' lasts as long as the dwell on the callee
+      this.path.push(Object.assign(this.pace([back], step.durationMs * 0.2)[0], { dwell: 0 }));
+      send.dwell = Math.round(step.durationMs * 0.2);
+    }
+
+    callRoot(state) { this.root.dataset.call = state; }
 
     // ---- search ----
     planSearch(step) {
@@ -520,13 +631,49 @@
       ctx.globalAlpha = 1;
     }
 
+    // Where the spider's body sits and what its reaching leg touches. In the
+    // search box and the hit list, and while typing a write, the body stays off
+    // the text and only a leg reaches in, so what is being typed stays readable.
+    perchPoint(scroll) {
+      const wp = this.wp;
+      let kind = null;
+      if (this.mode === 'search') {
+        if (wp && wp.kind === 'type') { kind = 'type'; }
+        else if (wp && wp.kind === 'row') { kind = 'row'; }
+        else if (!wp && this.perch) { kind = this.perch; }
+      } else if (this.mode === 'code' && wp && wp.kind === 'line' && wp.op === 'write') {
+        kind = 'write';
+      }
+      this.perch = kind;
+      if (kind === 'type') {
+        const top = this.searchBox.offsetTop - scroll;
+        return { kind, bx: this.x, by: top - 12, rx: this.x, ry: this.y - scroll };
+      }
+      if (kind === 'row') {
+        return { kind, bx: 12, by: this.y - scroll, rx: 28, ry: this.y - scroll };
+      }
+      if (kind === 'write') {
+        return { kind, bx: this.x + 22, by: this.y - scroll, rx: this.x, ry: this.y - scroll };
+      }
+      return null;
+    }
+
     drawSpider(ctx, scroll, dt) {
-      const bx = this.x;
-      const by = this.y - scroll;
+      const perch = this.perchPoint(scroll);
+      const want = perch ? 1 : 0;
+      this.blend += (want - this.blend) * Math.min(1, dt / 120);
+      if (Math.abs(want - this.blend) < 0.01) { this.blend = want; }
+      const last = this.lastPerch || (this.lastPerch = { bx: this.x, by: this.y - scroll, rx: this.x, ry: this.y - scroll });
+      if (perch) { Object.assign(last, perch); }
+      const onX = this.x;
+      const onY = this.y - scroll;
+      const bx = onX + ((last.bx) - onX) * this.blend;
+      const by = onY + ((last.by) - onY) * this.blend;
       const vx = this.x - this.prevX;
       const vy = this.y - this.prevY;
       const moving = Math.hypot(vx, vy) > 0.3;
-      if (moving) { this.heading = Math.atan2(vy, vx); }
+      if (this.blend > 0.5) { this.heading = Math.atan2(last.ry - by, last.rx - bx); }
+      else if (moving) { this.heading = Math.atan2(vy, vx); }
       this.prevX = this.x;
       this.prevY = this.y;
 
@@ -573,6 +720,32 @@
       ctx.arc(hx + ox, hy + oy, 0.7, 0, Math.PI * 2);
       ctx.arc(hx - ox, hy - oy, 0.7, 0, Math.PI * 2);
       ctx.fill();
+
+      if (this.blend > 0.15) { this.drawReach(ctx, hx, hy, last, dt); }
+    }
+
+    // One long front leg from the head to where the spider is typing, tapping
+    // like a finger on a key.
+    drawReach(ctx, hx, hy, p, dt) {
+      const tap = Math.sin(performance.now() * 0.03) * 2.2;
+      const tx = p.rx;
+      const ty = p.ry + (this.perch === 'row' ? 0 : tap * 0.6);
+      const mx = (hx + tx) / 2;
+      const my = Math.min(hy, ty) - 7 - Math.abs(tap);
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.blend);
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.quadraticCurveTo(mx, my, tx, ty);
+      ctx.stroke();
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     dispose() {

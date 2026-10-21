@@ -56,6 +56,18 @@ function changedRange(patch: unknown): { start?: number; end?: number; added: nu
   return { start, end, added };
 }
 
+// A short "what was asked" line from an MCP tool's arguments.
+export function summarizeArgs(input: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(input)) {
+    const s = typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '';
+    if (s) {
+      parts.push(`${k}: ${s}`);
+    }
+  }
+  return oneLine(parts.join(' · '), 120);
+}
+
 export class ClaudeTranscriptParser implements RecordParser {
   private readonly pending = new Map<string, PendingTool>();
   private lastText = '';
@@ -289,6 +301,7 @@ export class ClaudeTranscriptParser implements RecordParser {
 
       case 'Agent':
       case 'Task': {
+        const kindOfAgent = str(input.subagent_type) || 'general-purpose';
         out.meta.push({
           kind: 'spawn',
           spawn: {
@@ -298,11 +311,17 @@ export class ClaudeTranscriptParser implements RecordParser {
             agentId: str(tur.agentId) || undefined,
           },
         });
-        return [];
+        return [this.b.call('agent', tool.name, kindOfAgent, oneLine(str(input.description) || str(input.prompt), 120), id, ts)];
       }
 
-      default:
-        return [];
+      default: {
+        // Any other MCP tool: mcp__<server>__<tool>
+        const m = /^mcp__(.+?)__(.+)$/.exec(tool.name);
+        if (!m || isError) {
+          return [];
+        }
+        return [this.b.call('mcp', m[2], m[1].replace(/^claude_ai_/, '').replace(/_/g, ' '), summarizeArgs(input), id, ts)];
+      }
     }
   }
 }

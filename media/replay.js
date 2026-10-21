@@ -10,9 +10,9 @@
   if (typeof acquireVsCodeApi === 'function') { document.documentElement.setAttribute('data-vscode', ''); }
 
   const TA = window.TraceAnalysis; // phases, edges, drift, flow (media/traceAnalysis.js)
-  const OPS = ['read', 'write', 'search', 'bash'];
-  const OP_LABEL = { read: 'read', write: 'edit', search: 'search', bash: 'command' };
-  const OP_RGB = { read: '120,170,230', write: '230,150,90', search: '180,130,230', bash: '150,150,150' };
+  const OPS = ['read', 'write', 'search', 'call', 'bash'];
+  const OP_LABEL = { read: 'read', write: 'edit', search: 'search', call: 'mcp / agent', bash: 'command' };
+  const OP_RGB = { read: '120,170,230', write: '230,150,90', search: '180,130,230', call: '90,200,190', bash: '150,150,150' };
   const GAP_MS = 30 * 60 * 1000;
   const PALETTE = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9a6324', '#800000', '#aaffc3', '#808000'];
 
@@ -167,7 +167,7 @@
       const lines = s.lines ? `:${s.lines[0]}${s.lines[1] !== s.lines[0] ? `–${s.lines[1]}` : ''}` : '';
       const what = s.op === 'search'
         ? `<span class="f mono">${esc(s.query || '')}</span> <span class="d">${s.hits === undefined ? `in ${esc(s.file)}` : `→ ${s.hits} hit(s) in ${esc(s.file)}`}</span>`
-        : s.op === 'bash'
+        : (s.op === 'bash' || s.op === 'call')
           ? `<span class="d">${esc(s.detail || 'command')}</span>`
           : `<span class="f mono">${esc(s.file)}${esc(lines)}</span> <span class="d">${esc(s.detail || '')}</span>`;
       out.push(`<div class="step future" data-i="${i}"><span class="no">${s.i + 1}</span>`
@@ -234,7 +234,7 @@
     el.innerHTML = `<div class="now-top"><span class="agent-tag"><i style="background:${colorFor(s.agent)}"></i>${esc(agent ? agent.type : s.agent)}</span>`
       + `<span class="op-tag ${esc(s.op)}">${esc(OP_LABEL[s.op] || s.op)}</span><span class="when">${esc(clock(s.t))}</span></div>`
       + (s.op === 'search' ? `<div class="now-file mono">⌕ ${esc(s.query || '')}</div><div class="now-detail">${s.hits === undefined ? 'results not recorded' : `${s.hits} hit(s)`} in ${esc(s.file)}</div>`
-        : s.op === 'bash' ? `<div class="now-file mono">${esc(s.detail || '')}</div>`
+        : (s.op === 'bash' || s.op === 'call') ? `<div class="now-file mono">${esc(s.detail || '')}</div>`
           : `<div class="now-file mono">${esc(s.file)}${esc(lines)}</div><div class="now-detail">${esc(s.detail || '')}${s.symbol ? ` · in <span class="mono">${esc(s.symbol)}</span>` : ''}</div>`)
       + (s.caption ? `<div class="quote">“${esc(s.caption)}”</div>` : '')
       + whyHtml(s);

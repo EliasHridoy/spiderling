@@ -10,6 +10,7 @@
   --write: 230, 150, 90;
   --search: 180, 130, 230;
   --bash: 150, 150, 150;
+  --call: 90, 200, 190;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-vscode]) { --bg: #fff; --fg: #1f2328; --panel: #f6f8fa; --border: #d0d7de; --muted: #656d76; --link: #0969da; }
@@ -118,6 +119,7 @@ h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: upperca
 #now[data-op="write"] { border-left-color: rgb(var(--write)); }
 #now[data-op="search"] { border-left-color: rgb(var(--search)); }
 #now[data-op="bash"] { border-left-color: rgb(var(--bash)); }
+#now[data-op="call"] { border-left-color: rgb(var(--call)); }
 .now-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .agent-tag { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .agent-tag i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -126,6 +128,7 @@ h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: upperca
 .op-tag.write { background: rgba(var(--write), 0.2); color: rgb(var(--write)); }
 .op-tag.search { background: rgba(var(--search), 0.2); color: rgb(var(--search)); }
 .op-tag.bash { background: rgba(var(--bash), 0.2); color: rgb(var(--bash)); }
+.op-tag.call { background: rgba(var(--call), 0.2); color: rgb(var(--call)); }
 .when { margin-left: auto; color: var(--muted); font-size: 11.5px; }
 .now-file { font-size: 12.5px; word-break: break-all; }
 .now-detail { color: var(--muted); font-size: 12px; }
