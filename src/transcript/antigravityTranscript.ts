@@ -231,6 +231,8 @@ export class AntigravityTranscriptParser implements RecordParser {
         if (tool === 'codegraph_explore') {
           const q = str(args.query);
           events.push(this.b.search('codegraph_explore', this.root, q, undefined, id, ts, `codegraph "${q.slice(0, 48)}"`));
+        } else if (tool) {
+          events.push(this.b.call('mcp', tool, str(a.ServerName) || str(a.server_name) || 'mcp', oneLine(JSON.stringify(args), 120), id, ts));
         }
         break;
       }

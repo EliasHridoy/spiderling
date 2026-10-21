@@ -75,7 +75,7 @@ export class CodeCrawlPanel {
       this.disposables,
     );
     // Show where the most recent agent was, so the view isn't blank on open.
-    if (last && last.op !== 'bash') {
+    if (last && last.op !== 'bash' && last.op !== 'call') {
       this.player.push(last);
     }
   }
@@ -102,7 +102,7 @@ export class CodeCrawlPanel {
       return;
     }
     const msg: Record<string, unknown> = { ...step, color: colorForAgent(step.agent) };
-    if (step.op !== 'search') {
+    if (step.op !== 'search' && step.op !== 'call') {
       const info = this.readLines(step.file);
       const prev = this.sent.get(step.lane);
       if (!info) {

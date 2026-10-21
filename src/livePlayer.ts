@@ -15,7 +15,7 @@ export interface PlayStep extends ActivityEvent {
   hitLine?: number;
 }
 
-const BASE_MS: Record<string, number> = { read: 1500, write: 2000, search: 2600 };
+const BASE_MS: Record<string, number> = { read: 1500, write: 2000, search: 2600, call: 2400 };
 const MIN_MS = 350;
 const MAX_QUEUE = 24;
 
@@ -73,7 +73,7 @@ export class LivePlayer {
 
     if (event.op === 'search') {
       lane.lastSearch = event;
-    } else if (lane.lastSearch?.hits?.length) {
+    } else if (event.op !== 'call' && lane.lastSearch?.hits?.length) {
       // Did the agent just open something its last search turned up?
       const hits = lane.lastSearch.hits;
       const inRange = (line?: number) => line === undefined || event.startLine === undefined

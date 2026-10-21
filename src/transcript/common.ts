@@ -117,6 +117,17 @@ export class EventBuilder {
     };
   }
 
+  // An MCP tool or subagent call: nothing on disk, so the "file" is the target.
+  call(kind: 'mcp' | 'agent', tool: string, target: string, summary: string, toolUseId: string, ts: string): ActivityEvent {
+    const ev = this.base('call', tool, '', toolUseId, ts);
+    ev.file = `(${kind})`;
+    ev.callKind = kind;
+    ev.target = target;
+    ev.query = summary;
+    ev.detail = kind === 'mcp' ? `${target} · ${tool}` : `${target}: ${summary}`;
+    return ev;
+  }
+
   // `hitsAbs` undefined means the agent's log does not say what the search found
   // (as opposed to an empty list: it found nothing).
   search(

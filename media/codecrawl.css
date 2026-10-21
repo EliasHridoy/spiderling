@@ -4,6 +4,7 @@
   --read: 120, 170, 230;
   --write: 230, 150, 90;
   --search: 180, 130, 230;
+  --call: 90, 200, 190;
   --border: var(--vscode-panel-border, rgba(128, 128, 128, 0.3));
   --muted: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.9));
 }
@@ -132,6 +133,7 @@ body.is-live .live-dot {
 .lane[data-op="read"] { border-top: 2px solid rgba(var(--read), 0.8); }
 .lane[data-op="write"] { border-top: 2px solid rgba(var(--write), 0.85); }
 .lane[data-op="search"] { border-top: 2px solid rgba(var(--search), 0.8); }
+.lane[data-op="call"] { border-top: 2px solid rgba(var(--call), 0.85); }
 
 .lane-header {
   display: flex;
@@ -251,7 +253,7 @@ body.is-live .live-dot {
 
 /* ---- search view ---- */
 .search-vp {
-  padding: 12px 10px 30vh 10px;
+  padding: 36px 10px 30vh 10px; /* room above the box for the spider to perch */
   box-sizing: border-box;
   font-family: var(--vscode-font-family, sans-serif);
 }
@@ -295,7 +297,7 @@ body.is-live .live-dot {
   color: var(--muted);
 }
 .search-meta.none { color: var(--vscode-errorForeground, #f48771); }
-.hits { font-size: var(--cc-font); }
+.hits { font-size: var(--cc-font); padding-left: 24px; /* the spider walks this gutter */ }
 .hit {
   display: flex;
   gap: 0;
@@ -330,3 +332,34 @@ body.is-live .live-dot {
   pointer-events: none;
   z-index: 3;
 }
+
+/* ---- MCP / subagent call view ---- */
+.call-vp { display: flex; align-items: center; justify-content: center; font-family: var(--vscode-font-family, sans-serif); }
+.call-stage { display: flex; align-items: center; width: 100%; padding: 0 18px; box-sizing: border-box; gap: 0; }
+.call-node {
+  flex: 0 0 auto; width: 30%; min-width: 96px; max-width: 190px; padding: 10px 12px; text-align: center;
+  border: 1px solid var(--border); border-radius: 10px; background: rgba(128, 128, 128, 0.07);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.call-icon { font-size: 20px; line-height: 1.2; }
+.call-title { margin-top: 3px; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-sub { margin-top: 2px; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-link { position: relative; flex: 1; min-width: 60px; height: 70px; }
+.call-label {
+  position: absolute; left: 6px; right: 6px; bottom: 50%; margin-bottom: 12px; text-align: center;
+  font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: 0.85;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.call-thread { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed rgba(var(--call), 0.7); }
+.call-packet {
+  position: absolute; top: -4px; left: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%;
+  background: rgb(var(--call)); box-shadow: 0 0 8px rgb(var(--call)); opacity: 0;
+}
+.call-state { position: absolute; left: 0; right: 0; top: 50%; margin-top: 14px; text-align: center; font-size: 10.5px; color: var(--muted); }
+.lane[data-call="sending"] .call-packet, .lane[data-call="answering"] .call-packet { opacity: 1; }
+.lane[data-call="sending"] .call-node.src { border-color: rgba(var(--call), 0.8); box-shadow: 0 0 10px rgba(var(--call), 0.3); }
+.lane[data-call="working"] .call-node.dst {
+  border-color: rgba(var(--call), 0.9); animation: callwork 1s ease-in-out infinite;
+}
+.lane[data-call="answering"] .call-node.src, .lane[data-call="done"] .call-node.src { border-color: rgba(var(--call), 0.8); }
+@keyframes callwork { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--call), 0.5); } 50% { box-shadow: 0 0 0 8px rgba(var(--call), 0); } }

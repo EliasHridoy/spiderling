@@ -4,6 +4,13 @@ All notable changes are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Code Crawl
+- Edits are typed in: the new lines are blank until the spider reaches them, then appear as it writes.
+- Searches no longer hide the box: the spider perches above it and reaches in with one leg, and walks the left gutter of the hit list.
+- MCP tool calls and subagent spawns get their own live view (request travels to the callee, the answer comes back). They are new `call` steps in the trace.
+
 ## [0.1.0]: first public release
 
 Spiderling started as the spider-crawler extension of an agent workflow toolkit and is now

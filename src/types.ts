@@ -1,6 +1,7 @@
 // The extension's activity event: one thing an agent did (read, edit, search,
 // run a command), produced by the session-log parsers in src/transcript/*.
-export type ActivityOp = 'read' | 'write' | 'search' | 'bash';
+// 'call' is an MCP tool or subagent call: it has no file, only a target and a summary.
+export type ActivityOp = 'read' | 'write' | 'search' | 'bash' | 'call';
 
 // One match a search turned up (grep/rg/find output, or a search tool's result).
 export interface SearchHit {
@@ -31,5 +32,7 @@ export interface ActivityEvent {
   query?: string; // what a search looked for
   hits?: SearchHit[]; // first matches of a search (capped)
   hitCount?: number; // total matches, including the ones not in `hits`; absent when the log doesn't say
+  callKind?: 'mcp' | 'agent'; // for op 'call'
+  target?: string; // for op 'call': the MCP server, or the subagent type
   caption?: string; // what the agent said just before this step ("why")
 }

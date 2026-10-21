@@ -56,6 +56,10 @@ export function activate(context: vscode.ExtensionContext): void {
   const treeView = vscode.window.createTreeView('spiderlingActivity', { treeDataProvider: treeProvider });
 
   const onEvent = (event: ActivityEvent, live: boolean) => {
+    if (event.op === 'call') {
+      codeCrawl?.post(event, live); // MCP / subagent calls have no file: live view and trace only
+      return;
+    }
     state.apply(event);
     // Gutter markers only for what is happening now, not replayed history.
     if (live && (event.op === 'read' || event.op === 'write')) {
