@@ -1,0 +1,219 @@
+{
+  "name": "spiderling",
+  "displayName": "Spiderling",
+  "description": "See what your AI coding agents actually did. A little spider crawls your code as Claude Code, Codex and Antigravity read, search and edit, and every session becomes a trace you can replay.",
+  "version": "0.1.0",
+  "publisher": "eliashridoy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EliasHridoy/spiderling.git"
+  },
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Visualization",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "claude code",
+    "codex",
+    "antigravity",
+    "agent trace",
+    "replay",
+    "visualization",
+    "observability",
+    "review"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "spiderling.openCrawlMap",
+        "title": "Open Crawl Map",
+        "icon": "$(globe)",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.openCodeCrawl",
+        "title": "Open Code Crawl",
+        "icon": "$(bug)",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.openTraceReplay",
+        "title": "Open Trace Replay",
+        "icon": "$(history)",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.exportTraceHtml",
+        "title": "Export Trace as HTML",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.showTraceForSelection",
+        "title": "Show Agent Trace for This Code",
+        "icon": "$(history)",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.copyTraceSummary",
+        "title": "Copy Trace Summary",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.toggleDecorations",
+        "title": "Toggle Gutter Spider",
+        "category": "Spiderling"
+      },
+      {
+        "command": "spiderling.clearActivity",
+        "title": "Clear Activity",
+        "category": "Spiderling"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "spiderlingActivity",
+          "name": "Spiderling",
+          "icon": "$(bug)",
+          "contextualTitle": "Spiderling"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "spiderling.openCodeCrawl",
+          "when": "view == spiderlingActivity",
+          "group": "navigation@1"
+        },
+        {
+          "command": "spiderling.openCrawlMap",
+          "when": "view == spiderlingActivity",
+          "group": "navigation@2"
+        },
+        {
+          "command": "spiderling.openTraceReplay",
+          "when": "view == spiderlingActivity",
+          "group": "navigation@3"
+        },
+        {
+          "command": "spiderling.clearActivity",
+          "when": "view == spiderlingActivity",
+          "group": "navigation@4"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "spiderling.showTraceForSelection",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "9_spiderling@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Spiderling",
+      "properties": {
+        "spiderling.agentSources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "codex",
+              "antigravity"
+            ]
+          },
+          "default": [
+            "claude",
+            "codex",
+            "antigravity"
+          ],
+          "description": "Which agents' session logs to follow for this workspace (Claude Code, Codex CLI, Antigravity CLI). Only sessions that worked in this workspace, or in another git worktree of its repository, are read. Reload the window after changing."
+        },
+        "spiderling.sessionLookbackMinutes": {
+          "type": "number",
+          "default": 60,
+          "description": "On startup, replay Claude Code sessions active within this many minutes (into the recap and trace)."
+        },
+        "spiderling.writeTraceFile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write each session to a trace file (see spiderling.traceFolder) so it can be replayed, exported and shared. Reload the window after changing."
+        },
+        "spiderling.traceFolder": {
+          "type": "string",
+          "default": ".spiderling/traces",
+          "description": "Where trace files are written (one JSON file per session): workspace-relative, or an absolute path. The default folder ignores itself in git. Reload the window after changing."
+        },
+        "spiderling.traceNextToIssueDocs": {
+          "type": "boolean",
+          "default": false,
+          "description": "If a session worked on an issue folder `docs/<number>/` (for example with instructions.md and plan.md in it), write its trace to `docs/<number>/agent-trace.json` instead, one file per issue. Reload the window after changing."
+        },
+        "spiderling.resolveSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Name the function/class an agent touched (e.g. \"edited parseInvoice()\") from the repo's CodeGraph index, for steps that happen while the extension is running. Needs Node 22+ in VS Code and a CodeGraph index; silently off otherwise. Reload the window after changing."
+        },
+        "spiderling.showDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the gutter spider + line highlight on files agents touch."
+        },
+        "spiderling.decorationTtlMs": {
+          "type": "number",
+          "default": 4000,
+          "description": "How long (ms) the spider decoration lingers on a file after a read/write before fading."
+        },
+        "spiderling.autoRevealOnWrite": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reveal the file in an editor when an agent writes to it."
+        },
+        "spiderling.trailLength": {
+          "type": "number",
+          "default": 8,
+          "description": "How many recently touched files each agent's silk trail connects in the crawl map."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test \"test/*.test.js\"",
+    "package": "vsce package --no-dependencies",
+    "lint:types": "tsc -p ./ --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.84.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.4.0"
+  },
+  "author": {
+    "name": "Elias Hridoy",
+    "url": "https://github.com/EliasHridoy"
+  },
+  "homepage": "https://github.com/EliasHridoy/spiderling#readme",
+  "bugs": {
+    "url": "https://github.com/EliasHridoy/spiderling/issues"
+  },
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1b1b2b",
+    "theme": "dark"
+  }
+}

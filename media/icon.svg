@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#252540"/>
+      <stop offset="1" stop-color="#14141f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="46%" r="50%">
+      <stop offset="0" stop-color="#7aa7ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7aa7ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="44" fill="url(#bg)"/>
+  <rect width="256" height="256" rx="44" fill="url(#glow)"/>
+  <!-- the web: spokes and rings -->
+  <g stroke="#7aa7ff" stroke-opacity="0.28" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M128 128 L128 14 M128 128 L238 56 M128 128 L238 200 M128 128 L128 242 M128 128 L18 200 M128 128 L18 56"/>
+    <path d="M128 76 L173 102 L173 154 L128 180 L83 154 L83 102 Z"/>
+    <path d="M128 40 L205 84 L205 172 L128 216 L51 172 L51 84 Z"/>
+  </g>
+  <!-- thread the spider hangs from -->
+  <path d="M128 14 L128 86" stroke="#cfe0ff" stroke-width="3" stroke-linecap="round" stroke-opacity="0.85"/>
+  <!-- legs -->
+  <g stroke="#ffb067" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M112 112 L80 90 L56 98"/>
+    <path d="M110 124 L72 122 L50 138"/>
+    <path d="M112 138 L80 156 L62 180"/>
+    <path d="M118 148 L100 176 L96 204"/>
+    <path d="M144 112 L176 90 L200 98"/>
+    <path d="M146 124 L184 122 L206 138"/>
+    <path d="M144 138 L176 156 L194 180"/>
+    <path d="M138 148 L156 176 L160 204"/>
+  </g>
+  <!-- body and head -->
+  <ellipse cx="128" cy="134" rx="22" ry="30" fill="#ffb067"/>
+  <circle cx="128" cy="100" r="15" fill="#ffc78f"/>
+  <circle cx="122" cy="97" r="3.2" fill="#1b1b2b"/>
+  <circle cx="134" cy="97" r="3.2" fill="#1b1b2b"/>
+  <circle cx="123" cy="96" r="1" fill="#fff"/>
+  <circle cx="135" cy="96" r="1" fill="#fff"/>
+</svg>

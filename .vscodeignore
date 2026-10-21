@@ -1,0 +1,16 @@
+.vscode/**
+.github/**
+docs/**
+examples/**
+src/**
+test/**
+node_modules/**
+tsconfig.json
+.gitignore
+.gitattributes
+CONTRIBUTING.md
+SECURITY.md
+**/*.ts
+**/*.map
+out/**/*.map
+scripts/**
