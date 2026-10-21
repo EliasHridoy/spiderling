@@ -7,7 +7,7 @@ import { CrawlMapPanel } from './crawlMap';
 import { CodeCrawlPanel } from './codeCrawl';
 import { ActivityTreeProvider } from './treeView';
 import { SessionWatcher } from './transcript/sessionWatcher';
-import { ReplayPanel, traceFolderFor } from './replay';
+import { ReplayPanel, findTraceFiles, readTrace, traceFolderFor } from './replay';
 
 // How many recent events to retain so a crawl map opened mid-run can replay the
 // whole recap instead of starting blank.
@@ -118,6 +118,34 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('spiderling.openCodeCrawl', () => {
       codeCrawl = CodeCrawlPanel.show(context, root, lastEvent);
+    }),
+    vscode.commands.registerCommand('spiderling.playRecap', async () => {
+      const files = await findTraceFiles(root);
+      if (!files.length) {
+        vscode.window.showInformationMessage('Spiderling: no agent traces yet. They appear in .spiderling/traces/ once an agent has run here.');
+        return;
+      }
+      const traceFile = files.length === 1 ? files[0] : (await vscode.window.showQuickPick(
+        files.map((u) => ({ label: vscode.workspace.asRelativePath(u), uri: u })),
+        { placeHolder: 'Pick a trace to play back' },
+      ))?.uri;
+      const doc = traceFile && readTrace(traceFile) as { sessions?: Record<string, { title?: string; startedAt?: string; steps?: unknown[] }> } | undefined;
+      const sessions = Object.entries(doc?.sessions ?? {}).filter(([, s]) => s.steps?.length);
+      if (!sessions.length) {
+        if (traceFile) {
+          vscode.window.showInformationMessage('Spiderling: that trace has no steps to play.');
+        }
+        return;
+      }
+      const [id, session] = sessions.length === 1 ? sessions[0] : ((await vscode.window.showQuickPick(
+        sessions.map((e) => ({ label: e[1].title || e[0].slice(0, 8), description: `${e[1].steps?.length} steps · ${e[1].startedAt ?? ''}`, entry: e })),
+        { placeHolder: 'Pick a session to play back' },
+      ))?.entry ?? [undefined, undefined]);
+      if (!id || !session) {
+        return;
+      }
+      codeCrawl = CodeCrawlPanel.show(context, root);
+      codeCrawl.playRecap(session.steps ?? [], id, session.title || id.slice(0, 8));
     }),
     vscode.commands.registerCommand('spiderling.openTraceReplay', () => ReplayPanel.show(context, root)),
     vscode.commands.registerCommand('spiderling.exportTraceHtml', () => ReplayPanel.exportHtml(context, root)),

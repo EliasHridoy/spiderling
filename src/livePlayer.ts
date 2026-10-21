@@ -15,7 +15,7 @@ export interface PlayStep extends ActivityEvent {
   hitLine?: number;
 }
 
-const BASE_MS: Record<string, number> = { read: 1500, write: 2000, search: 2600, call: 2400 };
+export const BASE_MS: Record<string, number> = { read: 1500, write: 2000, search: 2600, call: 2400 };
 const MIN_MS = 350;
 const MAX_QUEUE = 24;
 
@@ -24,6 +24,25 @@ interface Lane {
   busyUntil: number;
   timer?: ReturnType<typeof setTimeout>;
   lastSearch?: ActivityEvent;
+}
+
+// Did the agent just open something its last search turned up? Tag the step
+// with the hit it came from, so the spider walks from that hit into the file.
+export function linkHit(step: PlayStep, lastSearch?: ActivityEvent): void {
+  if (step.op === 'call' || !lastSearch?.hits?.length) {
+    return;
+  }
+  const hits = lastSearch.hits;
+  const inRange = (line?: number) => line === undefined || step.startLine === undefined
+    || (line >= step.startLine && line <= (step.endLine ?? step.startLine));
+  let idx = hits.findIndex((h) => h.file === step.file && inRange(h.line));
+  if (idx < 0) {
+    idx = hits.findIndex((h) => h.file === step.file);
+  }
+  if (idx >= 0) {
+    step.fromHit = idx;
+    step.hitLine = hits[idx].line;
+  }
 }
 
 export function laneKey(event: ActivityEvent): string {
@@ -73,19 +92,8 @@ export class LivePlayer {
 
     if (event.op === 'search') {
       lane.lastSearch = event;
-    } else if (event.op !== 'call' && lane.lastSearch?.hits?.length) {
-      // Did the agent just open something its last search turned up?
-      const hits = lane.lastSearch.hits;
-      const inRange = (line?: number) => line === undefined || event.startLine === undefined
-        || (line >= event.startLine && line <= (event.endLine ?? event.startLine));
-      let idx = hits.findIndex((h) => h.file === event.file && inRange(h.line));
-      if (idx < 0) {
-        idx = hits.findIndex((h) => h.file === event.file);
-      }
-      if (idx >= 0) {
-        step.fromHit = idx;
-        step.hitLine = hits[idx].line;
-      }
+    } else {
+      linkHit(step, lane.lastSearch);
     }
 
     this.sink(step);

@@ -95,7 +95,7 @@ function safeMtime(p: string): number {
   }
 }
 
-function readTrace(file: vscode.Uri): unknown | undefined {
+export function readTrace(file: vscode.Uri): unknown | undefined {
   try {
     return JSON.parse(fs.readFileSync(file.fsPath, 'utf8'));
   } catch {
