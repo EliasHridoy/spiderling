@@ -70,7 +70,17 @@ first few lines. Details and per-agent limits: [docs/AGENT_SUPPORT.md](docs/AGEN
 
 ## Install
 
-**From a release** (until it is on the Marketplace):
+**From the Marketplace** (recommended): open the Extensions view in VS Code, search for
+**Spiderling**, and click *Install*. Or from a terminal:
+
+```bash
+code --install-extension eliashridoy.spiderling
+```
+
+The extension page is
+[marketplace.visualstudio.com/items?itemName=eliashridoy.spiderling](https://marketplace.visualstudio.com/items?itemName=eliashridoy.spiderling).
+
+**From a release** (for editors without the Marketplace, or to try a specific version):
 
 1. Download `spiderling-<version>.vsix` from the
    [Releases](https://github.com/EliasHridoy/spiderling/releases) page.
