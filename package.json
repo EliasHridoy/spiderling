@@ -2,7 +2,7 @@
   "name": "spiderling",
   "displayName": "Spiderling",
   "description": "See what your AI coding agents actually did. A little spider crawls your code as Claude Code, Codex and Antigravity read, search and edit, and every session becomes a trace you can replay.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "eliashridoy",
   "license": "MIT",
   "repository": {
