@@ -54,6 +54,12 @@
         "category": "Spiderling"
       },
       {
+        "command": "spiderling.playRecap",
+        "title": "Play Session Recap",
+        "icon": "$(play-circle)",
+        "category": "Spiderling"
+      },
+      {
         "command": "spiderling.exportTraceHtml",
         "title": "Export Trace as HTML",
         "category": "Spiderling"
@@ -108,9 +114,14 @@
           "group": "navigation@3"
         },
         {
-          "command": "spiderling.clearActivity",
+          "command": "spiderling.playRecap",
           "when": "view == spiderlingActivity",
           "group": "navigation@4"
+        },
+        {
+          "command": "spiderling.clearActivity",
+          "when": "view == spiderlingActivity",
+          "group": "navigation@5"
         }
       ],
       "editor/context": [

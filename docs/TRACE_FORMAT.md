@@ -72,6 +72,7 @@ and paths under the home directory are written as `~`.
 | `hits` | How many matches a search found; **absent** when the agent's log does not say (not the same as `0`) |
 | `hitFiles` | Distinct paths a search found (at most 25) |
 | `symbol` | The function/class around the lines, from the CodeGraph index (steps captured live only) |
+| `callKind`, `target` | For `call` steps: `mcp` or `agent`, and the MCP server or subagent type |
 | `caption` | What the agent wrote just before this step: its stated reason |
 
 Steps of one tool call (for example `grep … && sed -n …`) share a timestamp; they are

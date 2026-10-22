@@ -11,6 +11,10 @@ All notable changes are listed here. The format follows
 - Searches no longer hide the box: the spider perches above it and reaches in with one leg, and walks the left gutter of the hit list.
 - MCP tool calls and subagent spawns get their own live view (request travels to the callee, the answer comes back). They are new `call` steps in the trace.
 
+### Recap
+- **Spiderling: Play Session Recap** plays a saved trace back through Code Crawl: each agent's lane reads, types and searches its steps in recorded order, with play/pause, speed (0.5×–8×), a scrubber and a Live button. Files are read as they are today (traces hold no file text).
+- Traces now record the target and kind of MCP / subagent `call` steps.
+
 ## [0.1.0]: first public release
 
 Spiderling started as the spider-crawler extension of an agent workflow toolkit and is now
