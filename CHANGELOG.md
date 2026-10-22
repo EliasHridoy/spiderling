@@ -4,7 +4,7 @@ All notable changes are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0]: 2026-10-22
 
 ### Code Crawl
 - Edits are typed in: the new lines are blank until the spider reaches them, then appear as it writes.
